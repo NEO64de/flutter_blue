@@ -201,6 +201,10 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
             case "state":
             {
                 Protos.BluetoothState.Builder p = Protos.BluetoothState.newBuilder();
+                if (ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+                    p.setState(Protos.BluetoothState.State.UNAUTHORIZED);
+                } else {
                 try {
                     switch(mBluetoothAdapter.getState()) {
                         case BluetoothAdapter.STATE_OFF:
@@ -221,6 +225,7 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
                     }
                 } catch (SecurityException e) {
                     p.setState(Protos.BluetoothState.State.UNAUTHORIZED);
+                }
                 }
                 result.success(p.build().toByteArray());
                 break;

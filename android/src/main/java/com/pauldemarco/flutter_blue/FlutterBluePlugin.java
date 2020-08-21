@@ -688,6 +688,15 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
             private final DefaultLifecycleObserver mObserver = new DefaultLifecycleObserver() {
                     @Override
                     public void onCreate(LifecycleOwner owner) {
+                        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)
+                            != PackageManager.PERMISSION_GRANTED) {
+                            ActivityCompat.requestPermissions(
+                                                              activity,
+                                                              new String[] {
+                                                                  Manifest.permission.ACCESS_FINE_LOCATION
+                                                              },
+                                                              REQUEST_FINE_LOCATION_PERMISSIONS);
+                        } 
                     }
 
                     @Override
@@ -700,20 +709,11 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
 
                     @Override
                     public void onStart(LifecycleOwner owner) {
-                        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)
-                            != PackageManager.PERMISSION_GRANTED) {
-                            ActivityCompat.requestPermissions(
-                                                              activity,
-                                                              new String[] {
-                                                                  Manifest.permission.ACCESS_FINE_LOCATION
-                                                              },
-                                                              REQUEST_FINE_LOCATION_PERMISSIONS);
-                        }
-
                     }
     
                     @Override
                     public void onResume(LifecycleOwner owner) {
+                        checkState();
                     }
 
                     @Override
@@ -721,40 +721,38 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
                     }
                 };
 
-            private final PluginRegistry.RequestPermissionsResultListener mPermissionListener = new PluginRegistry.RequestPermissionsResultListener() {
-
-                    private void checkState() {
-                        Protos.BluetoothState.Builder p = Protos.BluetoothState.newBuilder();
-                        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)
-                            != PackageManager.PERMISSION_GRANTED) {
-                            p.setState(Protos.BluetoothState.State.UNAUTHORIZED);
-                        } else {
-                            try {
-                                switch(mBluetoothAdapter.getState()) {
-                                case BluetoothAdapter.STATE_OFF:
-                                    p.setState(Protos.BluetoothState.State.OFF);
-                                    break;
-                                case BluetoothAdapter.STATE_ON:
-                                    p.setState(Protos.BluetoothState.State.ON);
-                                    break;
-                                case BluetoothAdapter.STATE_TURNING_OFF:
-                                    p.setState(Protos.BluetoothState.State.TURNING_OFF);
-                                    break;
-                                case BluetoothAdapter.STATE_TURNING_ON:
-                                    p.setState(Protos.BluetoothState.State.TURNING_ON);
-                                    break;
-                                default:
-                                    p.setState(Protos.BluetoothState.State.UNKNOWN);
-                                    break;
-                                }
-                            } catch (SecurityException e) {
-                                p.setState(Protos.BluetoothState.State.UNAUTHORIZED);
-                            }
+            private void checkState() {
+                Protos.BluetoothState.Builder p = Protos.BluetoothState.newBuilder();
+                if (ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+                    p.setState(Protos.BluetoothState.State.UNAUTHORIZED);
+                } else {
+                    try {
+                        switch(mBluetoothAdapter.getState()) {
+                        case BluetoothAdapter.STATE_OFF:
+                            p.setState(Protos.BluetoothState.State.OFF);
+                            break;
+                        case BluetoothAdapter.STATE_ON:
+                            p.setState(Protos.BluetoothState.State.ON);
+                            break;
+                        case BluetoothAdapter.STATE_TURNING_OFF:
+                            p.setState(Protos.BluetoothState.State.TURNING_OFF);
+                            break;
+                        case BluetoothAdapter.STATE_TURNING_ON:
+                            p.setState(Protos.BluetoothState.State.TURNING_ON);
+                            break;
+                        default:
+                            p.setState(Protos.BluetoothState.State.UNKNOWN);
+                            break;
                         }
-                        sink.success(p.build().toByteArray());
+                    } catch (SecurityException e) {
+                        p.setState(Protos.BluetoothState.State.UNAUTHORIZED);
                     }
+                }
+                sink.success(p.build().toByteArray());
+            }
 
-                    
+            private final PluginRegistry.RequestPermissionsResultListener mPermissionListener = new PluginRegistry.RequestPermissionsResultListener() {
                     @Override
                     public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
                         if (requestCode == REQUEST_FINE_LOCATION_PERMISSIONS && sink != null) {
@@ -799,6 +797,7 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
 
                 activity.registerReceiver(mReceiver, filter);
                 if (!initialized)  {
+                    log(LogLevel.DEBUG, "[onInit]");
                     // TODO: Make private static class and Move to constructor
                     activityBinding.addRequestPermissionsResultListener(mPermissionListener);
                     mLifecycle.addObserver(mObserver);
